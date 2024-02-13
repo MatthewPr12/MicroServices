@@ -5,7 +5,7 @@ import logging
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s [%(thread)d] - %(name)s - %(levelname)s - %(message)s",
     filename="facade_service.log"
 )
 logger = logging.getLogger("facade_service")
