@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from uuid import uuid4
 import httpx
 
@@ -9,14 +9,14 @@ MESSAGES_SERVICE_URL = "http://localhost:8002"
 
 
 @app.post("/post_message/")
-async def post_message(msg: str):
+async def post_message(msg: str = Body(...)):
     msg_uuid = str(uuid4())
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(f"{LOGGING_SERVICE_URL}/log/", json={'uuid': msg_uuid, 'message': msg})
         response.raise_for_status()
     except httpx.RequestError as exc:
-        raise HTTPException(status_code=500, detail=f"Logging service request failed: {str(exc)}")
+        return {"error": str(exc)}
 
     return {"uuid": msg_uuid, "response": response.text}
 
