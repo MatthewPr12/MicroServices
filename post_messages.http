@@ -1,0 +1,62 @@
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg1"
+###
+
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg2"
+###
+
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg3"
+###
+
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg4"
+###
+
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg5"
+###
+
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg6"
+###
+
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg7"
+###
+
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg8"
+###
+
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg9"
+###
+
+
+POST http://127.0.0.1:8000/post_message/
+Accept: application/json
+
+"msg10"
+###
+
+

@@ -1,48 +1,41 @@
-from fastapi import FastAPI, HTTPException, Body
-from uuid import uuid4
 import httpx
 import logging
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(thread)d] - %(name)s - %(levelname)s - %(message)s",
-    filename="facade_service.log"
-)
-logger = logging.getLogger("facade_service")
-
-app = FastAPI()
-
-LOGGING_SERVICE_URL = "http://localhost:8001"
-MESSAGES_SERVICE_URL = "http://localhost:8002"
+from uuid import uuid4
+from random import choice
 
 
-@app.post("/post_message/")
-async def post_message(msg: str = Body(...)):
-    msg_uuid = str(uuid4())
-    logger.info(f"Received message to log: {msg}")
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(f"{LOGGING_SERVICE_URL}/log/", json={'uuid': msg_uuid, 'message': msg})
-        response.raise_for_status()
-    except httpx.RequestError as exc:
-        logger.error(f"Logging service request failed: {str(exc)}")
-        return {"error": str(exc)}
+class FacadeService:
+    def __init__(self):
+        self.logging_service_urls = [
+            "http://localhost:8002",
+            "http://localhost:8003",
+            "http://localhost:8004"
+        ]
+        self.message_service_url = "http://localhost:8001"
+        self.clients = [httpx.AsyncClient(base_url=url) for url in self.logging_service_urls]
 
-    # return {"uuid": msg_uuid, "response": response.text}
-    return response.text
+    async def add_message(self, msg: str):
+        msg_uuid = str(uuid4())
+        selected_client = choice(self.clients)
+        try:
+            response = await selected_client.post("/log/", json={'uuid': msg_uuid, 'message': msg})
+            response.raise_for_status()
+            return response.text
+        except httpx.RequestError as exc:
+            logging.error(f"Logging service request failed: {str(exc)}")
+            return {"error": str(exc)}
 
+    async def get_messages(self):
+        selected_client = choice(self.clients)
+        try:
+            logging_response = await selected_client.get("/messages/")
+            # Assuming that the messages service is different and not included in the round-robin
+            async with httpx.AsyncClient(base_url=self.message_service_url) as message_client:
+                messages_response = await message_client.get("/message/")
 
-@app.get("/get_messages/")
-async def get_messages():
-    logger.info("Received request to get messages.")
-    try:
-        async with httpx.AsyncClient() as client:
-            logging_response = await client.get(f"{LOGGING_SERVICE_URL}/messages/")
-            messages_response = await client.get(f"{MESSAGES_SERVICE_URL}/message/")
-        logging_response.raise_for_status()
-        messages_response.raise_for_status()
-    except httpx.RequestError as exc:
-        logger.error(f"Request to one of the services failed: {str(exc)}")
-        raise HTTPException(status_code=500, detail=f"Request to one of the services failed: {str(exc)}")
-
-    return {"logging_service": logging_response.text, "messages_service": messages_response.text}
+            logging_response.raise_for_status()
+            messages_response.raise_for_status()
+            return {"logging_service": logging_response.text, "messages_service": messages_response.text}
+        except httpx.RequestError as exc:
+            logging.error(f"Request to one of the services failed: {str(exc)}")
+            raise exc  # This will be caught by the FastAPI exception handler

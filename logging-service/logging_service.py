@@ -1,31 +1,44 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+import hazelcast
 import logging
+import subprocess
+import signal
+import os
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(thread)d] - %(name)s - %(levelname)s - %(message)s",
-    filename="logging_service.log"
-)
 logger = logging.getLogger("logging_service")
 
-app = FastAPI()
-logged_messages = {}
 
+class LoggingService:
+    def __init__(self):
+        print(os.getcwd())
+        self.hazelcast_process = subprocess.Popen(["./../../hazelcast-5.3.6/bin/hz-start"])
+        logger.info("Hazelcast node started.")
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
 
-class LogItem(BaseModel):
-    uuid: str
-    message: str
+        self.client = hazelcast.HazelcastClient(
+            cluster_name="dev",
+        )
+        self.logged_messages = self.client.get_map("logging_map").blocking()
 
+    def signal_handler(self, signum, frame):
+        self.cleanup_hazelcast()
 
-@app.post("/log/")
-async def log_message(log_item: LogItem):
-    logger.info(f"Logging message: {log_item.message} with UUID: {log_item.uuid}")
-    logged_messages[log_item.uuid] = log_item.message
-    return {"status": "logged"}
+    def cleanup_hazelcast(self):
+        if self.hazelcast_process:
+            logger.info("Shutting down Hazelcast node.")
+            self.hazelcast_process.terminate()
+            self.hazelcast_process.wait()
+            logger.info("Hazelcast node shutdown complete.")
 
+    def log_message(self, uuid: str, message: str):
+        self.logged_messages.put(uuid, message)
+        logger.info(f"Logging message: {message} with UUID: {uuid}")
+        print(f"Logging message: {message} with UUID: {uuid}")
+        return {"status": "logged"}
 
-@app.get("/messages/")
-async def get_messages():
-    logger.info("Returning all logged messages.")
-    return " ".join(logged_messages.values())
+    def get_messages(self):
+        all_messages = []
+        for key, value in self.logged_messages.entry_set():
+            all_messages.append(value)
+        logger.info("Returning all logged messages.")
+        return " ".join(all_messages)
