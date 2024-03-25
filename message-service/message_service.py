@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+import hazelcast
 import logging
+from threading import Thread, Lock
 
 logging.basicConfig(
     level=logging.INFO,
@@ -8,10 +9,36 @@ logging.basicConfig(
 )
 logger = logging.getLogger("messages_service")
 
-app = FastAPI()
+
+class MessageService:
+    def __init__(self):
+        self.client = hazelcast.HazelcastClient(
+            cluster_name="dev",
+        )
+        self.message_queue = self.client.get_queue("message_queue").blocking()
+        self.local_message_store = []
+        self.store_lock = Lock()  # mutex
+        self.consumer_thread = Thread(target=self.consume_messages, daemon=True)
+        self.consumer_thread.start()
+
+    def get_messages(self):
+        with self.store_lock:
+            return list(self.local_message_store)
+
+    def consume_messages(self):
+        while True:
+            try:
+                message = self.message_queue.take()
+                with self.store_lock:
+                    self.local_message_store.append(message)
+                logger.info(f"Consumed message: {message}")
+            except Exception as e:
+                logger.error(f"Error consuming messages: {e}")
+            # TODO: Consider implementing a sleep or pause mechanism to prevent a tight loop
+
+    def stop_consuming(self):
+        if self.client:
+            self.client.shutdown()
 
 
-@app.get("/message/")
-async def get_message():
-    logger.info("Message service called - returning 'not implemented yet'.")
-    return "not implemented yet"
+message_service = MessageService()
